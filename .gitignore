@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# VS Code
+.vscode/
+
+# Generated datasets
+data/*.csv
+
+# Generated outputs
+outputs/*.csv
+outputs/*.html
+outputs/*.png
+
+# Saved models
+models/*.pkl
+
+# Environment variables
+.env

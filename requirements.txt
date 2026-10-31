@@ -1,0 +1,12 @@
+
+pandas
+numpy
+requests
+matplotlib
+seaborn
+scikit-learn
+folium
+streamlit
+streamlit-folium
+plotly
+joblib
