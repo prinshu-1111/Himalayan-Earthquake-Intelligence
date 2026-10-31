@@ -1,3 +1,4 @@
+
 # Himalayan Earthquake Intelligence System
 
 An end-to-end Data Science project that analyses 20 years of historical earthquake data across the Himalayan region using real-world data from the USGS Earthquake Catalog.
@@ -56,7 +57,13 @@ Himalayan-Earthquake-Intelligence/
 │   └── earthquakes.csv
 │
 ├── outputs/
-│   ├── visualizations
+│   ├── magnitude_distribution.png
+│   ├── yearly_earthquakes.png
+│   ├── depth_analysis.png
+│   ├── magnitude_depth.png
+│   ├── monthly_activity.png
+│   ├── earthquake_heatmap.png
+│   ├── cluster_analysis.png
 │   ├── cluster_summary.csv
 │   ├── earthquake_map.html
 │   └── processed_earthquakes.csv
@@ -72,7 +79,7 @@ Himalayan-Earthquake-Intelligence/
 
 ## How to Run
 
-Install the dependencies:
+Install the required dependencies:
 
 ```bash
 pip install -r requirements.txt
@@ -87,12 +94,12 @@ python main.py
 Launch the interactive dashboard:
 
 ```bash
-streamlit run app.py
+python -m streamlit run app.py
 ```
 
 ## Data Source
 
-USGS Earthquake Catalog: https://earthquake.usgs.gov/fdsnws/event/1/
+[USGS Earthquake Catalog](https://earthquake.usgs.gov/fdsnws/event/1/)
 
 ## Disclaimer
 
