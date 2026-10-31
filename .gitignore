@@ -41,3 +41,4 @@ models/*.pkl
 
 # Environment variables
 .env
+.vercel
