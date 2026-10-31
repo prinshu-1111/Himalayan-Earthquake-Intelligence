@@ -1,0 +1,11 @@
+metric,value
+raw_rows,8153
+retained_rows,8153
+removed_rows,0
+duplicate_rows,0
+missing_required_rows,0
+invalid_coordinate_rows,0
+invalid_magnitude_rows,0
+invalid_depth_rows,0
+outside_study_region_rows,0
+statistical_depth_outliers,1

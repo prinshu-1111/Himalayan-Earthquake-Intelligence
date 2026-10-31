@@ -1,12 +1,13 @@
 
-pandas
-numpy
-requests
-matplotlib
-seaborn
-scikit-learn
-folium
-streamlit
-streamlit-folium
-plotly
-joblib
+pandas>=2.2,<3.0
+numpy>=1.26,<3.0
+requests>=2.32,<3.0
+matplotlib>=3.8,<4.0
+seaborn>=0.13,<0.14
+scikit-learn>=1.5,<2.0
+scipy>=1.13,<2.0
+folium>=0.18,<0.20
+streamlit>=1.40,<2.0
+streamlit-folium>=0.22,<0.26
+plotly>=5.24,<7.0
+joblib>=1.4,<2.0

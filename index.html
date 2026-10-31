@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07111f">
+  <meta name="description" content="Explore two decades of earthquake activity across the Himalayan region.">
+  <title>Himalayan Earthquake Intelligence</title>
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="./assets/css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#overview" aria-label="Himalayan Earthquake Intelligence home">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9 9 9 0 0 0-9-9Zm-.1 3.2 1.7 4.6 4.8 1.3-4.4 2.2-.8 4.1-2.5-3.7-4.2-.1 3.2-3-1.1-3.4 3.3-2Z"/></svg>
+      </span>
+      <span><strong>Seismic</strong><small>Intelligence</small></span>
+    </a>
+    <nav aria-label="Primary navigation">
+      <a class="active" href="#overview">Overview</a>
+      <a href="#map">Map</a>
+      <a href="#analytics">Analytics</a>
+      <a href="#clusters">Clusters</a>
+    </nav>
+    <button class="icon-button" id="themeToggle" aria-label="Toggle color theme" title="Toggle theme">
+      <svg viewBox="0 0 24 24"><path d="M12 4V2m0 20v-2M4 12H2m20 0h-2m-2.34-5.66L19.07 4.93M4.93 19.07l1.41-1.41m0-11.32L4.93 4.93m14.14 14.14-1.41-1.41M16 12a4 4 0 1 1-4-4 4 4 0 0 1 4 4Z"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <section class="hero" id="overview">
+      <div>
+        <span class="eyebrow">20-year seismic record</span>
+        <h1>Himalayan Earthquake<br><em>Intelligence</em></h1>
+        <p>Explore historical seismic activity across the Himalayas. Filter the USGS catalogue, investigate epicentres, and understand regional patterns.</p>
+      </div>
+      <div class="hero-status">
+        <span class="pulse"></span>
+        <div><strong>Historical data</strong><small>Updated through 2026</small></div>
+      </div>
+    </section>
+
+    <section class="filter-panel" aria-label="Data filters">
+      <div class="filter-group">
+        <label for="minMagnitude">Minimum magnitude <output id="magnitudeValue">3.0</output></label>
+        <input id="minMagnitude" type="range" min="3" max="7.8" step="0.1" value="3">
+      </div>
+      <div class="filter-group date-group">
+        <label for="startDate">From</label>
+        <input id="startDate" type="date">
+      </div>
+      <div class="filter-group date-group">
+        <label for="endDate">To</label>
+        <input id="endDate" type="date">
+      </div>
+      <button class="reset-button" id="resetFilters">Reset</button>
+    </section>
+
+    <section class="kpi-grid" aria-label="Earthquake overview">
+      <article class="kpi-card"><span>Total events</span><strong id="totalEvents">—</strong><small id="eventsMeta">Loading catalogue</small></article>
+      <article class="kpi-card"><span>Average magnitude</span><strong id="averageMagnitude">—</strong><small>Moment magnitude</small></article>
+      <article class="kpi-card"><span>Strongest event</span><strong id="maximumMagnitude">—</strong><small id="strongestPlace">—</small></article>
+      <article class="kpi-card"><span>Average depth</span><strong id="averageDepth">—</strong><small>Below surface</small></article>
+    </section>
+
+    <section class="content-grid" id="map">
+      <article class="panel map-panel">
+        <div class="panel-heading">
+          <div><span class="section-label">Spatial view</span><h2>Epicentre map</h2></div>
+          <div class="legend"><span class="legend-dot mild"></span>3.0–4.4<span class="legend-dot major"></span>4.5–5.9<span class="legend-dot severe"></span>6.0+</div>
+        </div>
+        <div id="earthquakeMap" aria-label="Map of earthquake epicentres"></div>
+      </article>
+      <aside class="panel recent-panel">
+        <div class="panel-heading"><div><span class="section-label">Latest records</span><h2>Recent events</h2></div></div>
+        <div id="recentEvents" class="recent-list"><p class="loading">Loading events…</p></div>
+      </aside>
+    </section>
+
+    <section class="analytics-grid" id="analytics">
+      <article class="panel"><div class="panel-heading"><div><span class="section-label">Magnitude</span><h2>Magnitude distribution</h2></div></div><div class="chart-wrap"><canvas id="magnitudeChart"></canvas></div></article>
+      <article class="panel"><div class="panel-heading"><div><span class="section-label">Frequency</span><h2>Yearly activity</h2></div></div><div class="chart-wrap"><canvas id="yearlyChart"></canvas></div></article>
+      <article class="panel"><div class="panel-heading"><div><span class="section-label">Depth</span><h2>Depth distribution</h2></div></div><div class="chart-wrap"><canvas id="depthChart"></canvas></div></article>
+      <article class="panel"><div class="panel-heading"><div><span class="section-label">Seasonality</span><h2>Monthly activity</h2></div></div><div class="chart-wrap"><canvas id="monthlyChart"></canvas></div></article>
+    </section>
+
+    <section class="panel cluster-panel" id="clusters">
+      <div class="panel-heading">
+        <div><span class="section-label">DBSCAN analysis</span><h2>Geographical clusters</h2></div>
+        <button class="download-button" id="downloadCsv">Download data</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Cluster</th><th>Events</th><th>Avg. magnitude</th><th>Maximum</th><th>Avg. depth</th><th>Centre</th></tr></thead>
+          <tbody id="clusterTable"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p><strong>Himalayan Earthquake Intelligence</strong></p>
+    <p>Historical analysis only. Source: <a href="https://earthquake.usgs.gov/" target="_blank" rel="noopener">USGS Earthquake Catalog</a>. Not a forecasting or official hazard service.</p>
+  </footer>
+
+  <div id="loadingOverlay" class="loading-overlay"><span></span><p>Loading seismic catalogue</p></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="./assets/js/app.js"></script>
+</body>
+</html>

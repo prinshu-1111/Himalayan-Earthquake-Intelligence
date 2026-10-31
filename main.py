@@ -14,13 +14,21 @@ import folium
 import joblib
 import time
 import warnings
+import logging
 
 from pathlib import Path
 from datetime import datetime, timezone
 from folium.plugins import HeatMap, MarkerCluster
 from sklearn.cluster import DBSCAN
 
+from analysis.preprocessing import preprocess_earthquakes
+from analysis.eda import create_eda_outputs
+from analysis.clustering import EARTH_RADIUS_KM, run_dbscan
+from analysis.evaluation import compare_dbscan_parameters, evaluate_labels, summarize_clusters
+from analysis.statistical_analysis import gutenberg_richter_analysis
+
 warnings.filterwarnings("ignore")
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
 
 # ============================================================
@@ -285,111 +293,21 @@ def load_earthquake_data():
 # ============================================================
 
 def clean_data(df):
-
+    """Backward-compatible cleaning entry point backed by the preprocessing module."""
     print("\nCleaning earthquake dataset...")
-
-    df = df.copy()
-
-    # Convert numerical columns
-    numeric_columns = [
-
-        "magnitude",
-        "longitude",
-        "latitude",
-        "depth",
-        "significance",
-        "felt",
-        "tsunami"
-    ]
-
-    for column in numeric_columns:
-
-        df[column] = pd.to_numeric(
-            df[column],
-            errors="coerce"
-        )
-
-    # Convert earthquake timestamps
-    numeric_time = pd.to_numeric(
-        df["time"],
-        errors="coerce"
+    cleaned, quality, outliers = preprocess_earthquakes(
+        df,
+        min_latitude=MIN_LATITUDE,
+        max_latitude=MAX_LATITUDE,
+        min_longitude=MIN_LONGITUDE,
+        max_longitude=MAX_LONGITUDE,
+        minimum_magnitude=MIN_MAGNITUDE,
     )
-
-    if numeric_time.notna().all():
-
-        df["time"] = pd.to_datetime(
-            numeric_time,
-            unit="ms",
-            utc=True,
-            errors="coerce"
-        )
-
-    else:
-
-        df["time"] = pd.to_datetime(
-            df["time"],
-            utc=True,
-            errors="coerce"
-        )
-
-    # Remove missing important values
-    df.dropna(
-        subset=[
-            "time",
-            "magnitude",
-            "longitude",
-            "latitude",
-            "depth"
-        ],
-        inplace=True
-    )
-
-    # Validate geographical coordinates
-    df = df[
-        (df["latitude"] >= -90) &
-        (df["latitude"] <= 90) &
-        (df["longitude"] >= -180) &
-        (df["longitude"] <= 180)
-    ]
-
-    # Keep only the selected Himalayan bounding box
-    df = df[
-        (df["latitude"] >= MIN_LATITUDE) &
-        (df["latitude"] <= MAX_LATITUDE) &
-        (df["longitude"] >= MIN_LONGITUDE) &
-        (df["longitude"] <= MAX_LONGITUDE)
-    ]
-
-    # Apply magnitude threshold
-    df = df[
-        df["magnitude"] >= MIN_MAGNITUDE
-    ]
-
-    # Remove duplicate earthquakes
-    df.drop_duplicates(
-        subset="id",
-        inplace=True
-    )
-
-    df.sort_values(
-        by="time",
-        inplace=True
-    )
-
-    df.reset_index(drop=True, inplace=True)
-
-    if df.empty:
-
-        raise RuntimeError(
-            "No records remain after cleaning. "
-            "Check the downloaded dataset and filters."
-        )
-
+    quality.to_csv(OUTPUT_DIR / "preprocessing_summary.csv", index=False)
+    outliers.to_csv(OUTPUT_DIR / "depth_outliers.csv", index=False)
     print("Cleaning completed.")
-
-    print("Records remaining:", len(df))
-
-    return df
+    print("Records remaining:", len(cleaned))
+    return cleaned
 
 
 # ============================================================
@@ -718,104 +636,44 @@ def create_visualisations(df):
 # ============================================================
 
 def earthquake_clustering(df):
-
+    """Fit the reference DBSCAN model and compare bounded parameter alternatives."""
     print("\nPerforming DBSCAN clustering...")
-
     df = df.copy()
+    result = run_dbscan(df, epsilon_km=50.0, min_samples=5)
+    df["cluster"] = result.labels
+    summary = summarize_clusters(df, result.labels)
 
-    # Convert latitude and longitude into radians
-    coordinates = np.radians(
-        df[["latitude", "longitude"]].values
+    evaluation = compare_dbscan_parameters(df)
+    evaluation.to_csv(OUTPUT_DIR / "model_evaluation.csv", index=False)
+    reference_evaluation = evaluate_labels(
+        df,
+        result.labels,
+        epsilon_km=result.epsilon_km,
+        min_samples=result.min_samples,
+        execution_time_seconds=result.execution_time_seconds,
+    )
+    evaluation = evaluation.sort_values(
+        ["silhouette_score", "noise_percent"],
+        ascending=[False, True],
+        na_position="last",
     )
 
-    # Earth's average radius in kilometres
-    earth_radius = 6371.0088
-
-    # DBSCAN parameters
-    epsilon_km = 50
-
-    epsilon_radians = (
-        epsilon_km / earth_radius
-    )
-
-    dbscan = DBSCAN(
-
-        eps=epsilon_radians,
-
-        min_samples=5,
-
-        metric="haversine",
-
-        algorithm="ball_tree"
-    )
-
-    # Assign cluster labels
-    df["cluster"] = dbscan.fit_predict(
-        coordinates
-    )
-
-    # -1 represents noise points
-    cluster_data = df[
-        df["cluster"] != -1
-    ]
-
-    if cluster_data.empty:
-
-        summary = pd.DataFrame()
-
-        print("No clusters were identified.")
-
-    else:
-
-        # Calculate cluster statistics
-        summary = cluster_data.groupby(
-            "cluster"
-        ).agg(
-
-            earthquake_count=("id", "count"),
-
-            average_magnitude=("magnitude", "mean"),
-
-            maximum_magnitude=("magnitude", "max"),
-
-            average_depth=("depth", "mean"),
-
-            center_latitude=("latitude", "mean"),
-
-            center_longitude=("longitude", "mean")
-
-        ).reset_index()
-
-        summary = summary.round(3)
-
-        summary.to_csv(
-            OUTPUT_DIR / "cluster_summary.csv",
-            index=False
-        )
-
-        print("\nCluster summary:")
-
-        print(summary)
-
-    # Save the fitted model and its parameters
+    if not summary.empty:
+        summary.to_csv(OUTPUT_DIR / "cluster_summary.csv", index=False)
+        (DATA_DIR / "cluster_summary.csv").parent.mkdir(parents=True, exist_ok=True)
+        summary.to_csv(DATA_DIR / "cluster_summary.csv", index=False)
+        public_data_dir = BASE_DIR / "public" / "data"
+        public_data_dir.mkdir(parents=True, exist_ok=True)
+        summary.to_csv(public_data_dir / "cluster_summary.csv", index=False)
     joblib.dump(
-
         {
-
-            "model": dbscan,
-
-            "epsilon_km": epsilon_km,
-
-            "min_samples": 5,
-
-            "description": (
-                "DBSCAN geographical clustering "
-                "of historical earthquake locations"
-            )
-
+            "model": result.model,
+            "epsilon_km": result.epsilon_km,
+            "earth_radius_km": EARTH_RADIUS_KM,
+            "min_samples": result.min_samples,
+            "evaluation": reference_evaluation,
         },
-
-        MODEL_DIR / "dbscan_model.pkl"
+        MODEL_DIR / "dbscan_model.pkl",
     )
 
     # --------------------------------------------------------
@@ -1038,9 +896,26 @@ def save_data(df):
         index=False
     )
 
+    # Keep deployable dashboard copies synchronized with the primary outputs.
+    data_output = DATA_DIR / "processed_earthquakes.csv"
+    df.to_csv(data_output, index=False)
+
+    deployment_output_dir = BASE_DIR / "public" / "data"
+    deployment_output_dir.mkdir(parents=True, exist_ok=True)
+    df.to_csv(deployment_output_dir / "processed_earthquakes.csv", index=False)
+
     print("\nProcessed dataset saved.")
 
     print(output_file)
+
+def generate_advanced_analysis(df):
+    """Generate reusable EDA and Gutenberg-Richter outputs."""
+    create_eda_outputs(df, OUTPUT_DIR)
+    frequency, statistics = gutenberg_richter_analysis(df, OUTPUT_DIR)
+    pd.DataFrame([statistics]).to_csv(
+        OUTPUT_DIR / "gutenberg_richter_summary.csv", index=False
+    )
+    frequency.to_csv(OUTPUT_DIR / "public_gutenberg_richter.csv", index=False)
 
 
 # ============================================================
@@ -1149,6 +1024,7 @@ def main():
 
     # Step 5: Generate charts
     create_visualisations(df)
+    generate_advanced_analysis(df)
 
     # Step 6: Apply DBSCAN clustering
     df, summary = earthquake_clustering(df)

@@ -40,6 +40,14 @@ DATA_FILE = BASE_DIR / "outputs" / "processed_earthquakes.csv"
 
 CLUSTER_FILE = BASE_DIR / "outputs" / "cluster_summary.csv"
 
+MODEL_EVALUATION_FILE = BASE_DIR / "outputs" / "model_evaluation.csv"
+
+PREPROCESSING_FILE = BASE_DIR / "outputs" / "preprocessing_summary.csv"
+
+GUTENBERG_FILE = BASE_DIR / "outputs" / "gutenberg_richter_summary.csv"
+
+GUTENBERG_FREQUENCY_FILE = BASE_DIR / "outputs" / "gutenberg_richter.csv"
+
 
 # ------------------------------------------------------------
 # 3. LOAD DATA
@@ -48,11 +56,13 @@ CLUSTER_FILE = BASE_DIR / "outputs" / "cluster_summary.csv"
 @st.cache_data
 
 def load_data():
-
-    df = pd.read_csv(
-        DATA_FILE,
-        parse_dates=["time"]
-    )
+    if DATA_FILE.exists():
+        source = DATA_FILE
+    else:
+        source = BASE_DIR / "data" / "processed_earthquakes.csv"
+        if not source.exists():
+            source = BASE_DIR / "public" / "data" / "processed_earthquakes.csv"
+    df = pd.read_csv(source, parse_dates=["time"])
 
     return df
 
@@ -60,15 +70,30 @@ def load_data():
 @st.cache_data
 
 def load_clusters():
-
-    if CLUSTER_FILE.exists():
-
-        return pd.read_csv(CLUSTER_FILE)
-
+    candidates = [
+        CLUSTER_FILE,
+        BASE_DIR / "data" / "cluster_summary.csv",
+        BASE_DIR / "public" / "data" / "cluster_summary.csv",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return pd.read_csv(candidate)
     return pd.DataFrame()
 
 
-if not DATA_FILE.exists():
+@st.cache_data
+def load_optional_csv(path):
+    """Load a generated analysis artifact when it is included in the deployment."""
+    if path.exists():
+        return pd.read_csv(path)
+    return pd.DataFrame()
+
+
+if not DATA_FILE.exists() and not (
+    BASE_DIR / "data" / "processed_earthquakes.csv"
+).exists() and not (
+    BASE_DIR / "public" / "data" / "processed_earthquakes.csv"
+).exists():
 
     st.error(
         "Earthquake dataset not found. "
@@ -81,6 +106,14 @@ if not DATA_FILE.exists():
 df = load_data()
 
 clusters = load_clusters()
+
+model_evaluation = load_optional_csv(MODEL_EVALUATION_FILE)
+
+preprocessing_summary = load_optional_csv(PREPROCESSING_FILE)
+
+gutenberg_summary = load_optional_csv(GUTENBERG_FILE)
+
+gutenberg_frequency = load_optional_csv(GUTENBERG_FREQUENCY_FILE)
 
 
 # ------------------------------------------------------------
@@ -102,6 +135,7 @@ st.caption(
     "Historical seismic activity analysis. "
     "This application does not predict future earthquakes."
 )
+
 
 
 # ------------------------------------------------------------
@@ -223,6 +257,33 @@ st.divider()
 # ------------------------------------------------------------
 # 8. INTERACTIVE EARTHQUAKE MAP
 # ------------------------------------------------------------
+
+st.subheader("1-2. Project Overview and Dataset Overview")
+overview_1, overview_2, overview_3 = st.columns(3)
+overview_1.metric("Filtered date coverage", f"{filtered_df['time'].min().date()} to {filtered_df['time'].max().date()}")
+overview_2.metric("Dataset columns", len(df.columns))
+overview_3.metric("Missing values", int(df.isna().sum().sum()))
+
+with st.expander("Dataset schema and source methodology"):
+    st.dataframe(
+        df.dtypes.astype(str).rename("data_type").to_frame().rename_axis("column").reset_index(),
+        use_container_width=True,
+    )
+
+st.subheader("3. Data Quality and Preprocessing")
+if not preprocessing_summary.empty:
+    st.dataframe(preprocessing_summary, use_container_width=True)
+else:
+    quality_metrics = pd.DataFrame(
+        [
+            {"metric": "rows", "value": len(df)},
+            {"metric": "missing_values", "value": int(df.isna().sum().sum())},
+            {"metric": "duplicate_event_ids", "value": int(df["id"].duplicated().sum()) if "id" in df else 0},
+        ]
+    )
+    st.dataframe(quality_metrics, use_container_width=True)
+
+st.divider()
 
 st.subheader("📍 Geographical Earthquake Activity")
 
@@ -576,6 +637,63 @@ if not clusters.empty:
 else:
 
     st.info("Cluster summary has not been generated yet.")
+
+st.divider()
+st.subheader("6-7. DBSCAN Model Evaluation")
+if not model_evaluation.empty:
+    st.dataframe(model_evaluation, use_container_width=True)
+    valid = model_evaluation.dropna(subset=["silhouette_score"])
+    if not valid.empty:
+        fig_evaluation = px.scatter(
+            valid,
+            x="epsilon_km",
+            y="silhouette_score",
+            size="number_of_clusters",
+            color="min_samples",
+            hover_data=["noise_percent", "davies_bouldin_index"],
+            title="Silhouette Score by DBSCAN Parameters",
+        )
+        st.plotly_chart(fig_evaluation, use_container_width=True)
+else:
+    st.info("Run python main.py to generate outputs/model_evaluation.csv.")
+
+st.caption(
+    "Silhouette and Davies-Bouldin are reported only when DBSCAN produced at "
+    "least two well-defined non-noise clusters. They describe geometric "
+    "separation, not earthquake hazard or causality."
+)
+
+st.divider()
+st.subheader("8. Gutenberg-Richter Analysis")
+if not gutenberg_frequency.empty and not gutenberg_summary.empty:
+    fig_gr = px.line(
+        gutenberg_frequency,
+        x="threshold_magnitude",
+        y="log10_cumulative_count",
+        markers=True,
+        title="Cumulative Magnitude-Frequency Relation",
+    )
+    st.plotly_chart(fig_gr, use_container_width=True)
+    b_value = gutenberg_summary.iloc[0].get("b_value")
+    if pd.notna(b_value):
+        st.metric("Estimated Gutenberg-Richter b-value", f"{float(b_value):.3f}")
+    st.caption(
+        "This estimate depends on catalogue completeness and the selected "
+        "magnitude threshold. Detection gaps can bias frequency and b-value estimates."
+    )
+else:
+    st.info("Run python main.py to generate Gutenberg-Richter outputs.")
+
+st.divider()
+st.subheader("9. Key Findings and Insights")
+st.markdown(
+    f"""
+    - The filtered catalogue contains **{len(filtered_df):,}** events.
+    - Mean magnitude is **{filtered_df['magnitude'].mean():.2f}** and maximum magnitude is **{filtered_df['magnitude'].max():.2f}**.
+    - Mean depth is **{filtered_df['depth'].mean():.1f} km**.
+    - Associations and spatial patterns are descriptive and do not imply prediction or causation.
+    """
+)
 
 
 # ------------------------------------------------------------

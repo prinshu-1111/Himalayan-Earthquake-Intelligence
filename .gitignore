@@ -11,11 +11,30 @@ venv/
 
 # Generated datasets
 data/*.csv
+!data/earthquakes.csv
+!data/processed_earthquakes.csv
+!data/cluster_summary.csv
 
 # Generated outputs
 outputs/*.csv
 outputs/*.html
 outputs/*.png
+!outputs/preprocessing_summary.csv
+!outputs/processed_earthquakes.csv
+!outputs/cluster_summary.csv
+!outputs/model_evaluation.csv
+!outputs/gutenberg_richter.csv
+!outputs/gutenberg_richter_summary.csv
+!outputs/yearly_activity.csv
+!outputs/monthly_activity.csv
+!outputs/magnitude_categories.csv
+!outputs/correlation_matrix.csv
+!outputs/*.png
+!outputs/*.html
+
+# Static deployment copies are part of the deployable GitHub snapshot
+!public/data/processed_earthquakes.csv
+!public/data/cluster_summary.csv
 
 # Saved models
 models/*.pkl
