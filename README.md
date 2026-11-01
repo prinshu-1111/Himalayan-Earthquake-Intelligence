@@ -10,6 +10,12 @@ Streamlit dashboard.
 > The system performs historical observational analysis only. It does not
 > predict earthquakes, issue alerts, or replace official seismic-hazard products.
 
+## Live Demo
+
+The deployed static dashboard is available at:
+
+**https://himalayan-earthquake-intelligence.vercel.app**
+
 ## Problem Statement
 
 Earthquake observations are spatially, temporally, and observationally uneven.
@@ -115,6 +121,8 @@ The website is framework-free and deploys directly from the repository root:
 4. Deploy.
 
 The checked-in `vercel.json` handles routing as a static site. No environment variables are required.
+The current production deployment is available at
+[himalayan-earthquake-intelligence.vercel.app](https://himalayan-earthquake-intelligence.vercel.app).
 
 ## Run the analysis pipeline
 
