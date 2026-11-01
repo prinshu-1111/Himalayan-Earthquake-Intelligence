@@ -34,8 +34,9 @@ function groupCount(values, labels, key) {
 
 function initMap() {
   state.map = L.map("earthquakeMap", { preferCanvas: true }).setView([31.5, 85], 5);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-    attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}", {
+    attribution: 'Tiles &copy; Esri &mdash; Sources: Esri, DeLorme, NAVTEQ',
+    maxZoom: 19
   }).addTo(state.map);
   state.markers = L.layerGroup().addTo(state.map);
 }
